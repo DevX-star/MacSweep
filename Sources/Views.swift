@@ -3,6 +3,7 @@
 
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 // MARK: - 根视图
 
@@ -25,13 +26,26 @@ struct RootView: View {
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
             .safeAreaInset(edge: .bottom) { SidebarDisk(app: app) }
         } detail: {
-            switch app.pane ?? .clean {
-            case .clean: CleanView(app: app, vm: sweep)
-            case .large: LargeFilesView(app: app, vm: large)
-            case .uninstall: UninstallView(app: app, vm: uninstall)
+            Group {
+                switch app.pane ?? .clean {
+                case .clean: CleanView(app: app, vm: sweep)
+                case .large: LargeFilesView(app: app, vm: large)
+                case .uninstall: UninstallView(app: app, vm: uninstall)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(BackgroundLayer(app: app))
         }
         .frame(minWidth: 860, minHeight: 600)
+        // 直接把图片拖进窗口即可设为背景
+        .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
+            guard let p = providers.first else { return false }
+            _ = p.loadObject(ofClass: URL.self) { url, _ in
+                guard let url else { return }
+                DispatchQueue.main.async { app.setBackground(from: url) }
+            }
+            return true
+        }
     }
 }
 
@@ -48,10 +62,76 @@ struct SidebarDisk: View {
             if app.totalFreed > 0 {
                 Text("累计释放 \(fmt(app.totalFreed))").font(.caption2).foregroundStyle(.green)
             }
+            Divider().padding(.vertical, 2)
+            Button { app.showAppearance.toggle() } label: {
+                Label("背景与外观", systemImage: "paintbrush.pointed").font(.caption)
+            }
+            .buttonStyle(.borderless)
+            .popover(isPresented: $app.showAppearance, arrowEdge: .trailing) { AppearancePanel(app: app) }
         }
         .padding(12)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(10)
+    }
+}
+
+// MARK: - 背景
+
+struct BackgroundLayer: View {
+    @ObservedObject var app: AppState
+    var body: some View {
+        if let img = app.bgImage {
+            GeometryReader { g in
+                Image(nsImage: img).resizable().scaledToFill()
+                    .frame(width: g.size.width, height: g.size.height).clipped()
+                    .blur(radius: app.bgBlur, opaque: true)
+            }
+            .overlay(Color(nsColor: .windowBackgroundColor).opacity(app.bgDim))
+            .ignoresSafeArea()
+            .transition(.opacity)
+        }
+    }
+}
+
+struct AppearancePanel: View {
+    @ObservedObject var app: AppState
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("背景图").font(.headline)
+            ZStack {
+                if let img = app.bgImage {
+                    Image(nsImage: img).resizable().scaledToFill()
+                        .blur(radius: app.bgBlur / 3, opaque: true)
+                        .overlay(Color(nsColor: .windowBackgroundColor).opacity(app.bgDim))
+                } else {
+                    Rectangle().fill(.quaternary)
+                    Label("未设置", systemImage: "photo").foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 260, height: 150)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.quaternary))
+
+            HStack {
+                Button { app.chooseBackground() } label: { Label("上传图片…", systemImage: "photo.badge.plus") }
+                    .buttonStyle(.borderedProminent)
+                Button("移除") { app.clearBackground() }.disabled(app.bgImage == nil)
+            }
+            Text("也可以直接把图片拖进窗口").font(.caption).foregroundStyle(.secondary)
+
+            if app.bgImage != nil {
+                Divider()
+                LabeledContent("遮罩") {
+                    Slider(value: $app.bgDim, in: 0...0.9).frame(width: 170)
+                }
+                LabeledContent("模糊") {
+                    Slider(value: $app.bgBlur, in: 0...30).frame(width: 170)
+                }
+                Text("遮罩越高，文字越清晰").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .frame(width: 292)
     }
 }
 
@@ -119,7 +199,7 @@ struct Card<Content: View>: View {
         content
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.quaternary))
     }
 }
@@ -250,8 +330,9 @@ struct CleanView: View {
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-                        .background(on ? rule.color.opacity(0.08) : Color.clear,
+                        .background(on ? AnyShapeStyle(rule.color.opacity(0.10)) : AnyShapeStyle(Color.clear),
                                     in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(on ? rule.color.opacity(0.5) : Color.secondary.opacity(0.2)))
                         .contentShape(Rectangle())
@@ -386,7 +467,8 @@ struct LargeFilesView: View {
                     }
                     .padding(.vertical, 2)
                 }
-                .listStyle(.inset(alternatesRowBackgrounds: true))
+                .listStyle(.inset(alternatesRowBackgrounds: app.bgImage == nil))
+                .scrollContentBackground(app.bgImage == nil ? .automatic : .hidden)
             }
 
             ActionBar(status: vm.status, busy: vm.busy) {
@@ -445,6 +527,8 @@ struct UninstallView: View {
                     }
                 }
             }
+            .scrollContentBackground(app.bgImage == nil ? .automatic : .hidden)
+            .background(app.bgImage == nil ? AnyShapeStyle(Color.clear) : AnyShapeStyle(.regularMaterial))
             .frame(minWidth: 220, idealWidth: 250, maxWidth: 320)
 
             detail.frame(minWidth: 380, maxWidth: .infinity)

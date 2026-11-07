@@ -2,6 +2,7 @@
 
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 enum Pane: String, CaseIterable, Identifiable {
     case clean, large, uninstall
@@ -28,6 +29,59 @@ final class AppState: ObservableObject {
         lastFreed = freed
         UserDefaults.standard.set(Int(totalFreed), forKey: "totalFreed")
         disk = Engine.diskInfo()
+    }
+
+    // MARK: 背景图（复制到 ~/Library/Application Support/MacSweep/，不依赖原文件）
+
+    @Published var bgImage: NSImage? = nil
+    @Published var showAppearance = false
+    @Published var bgDim: Double = UserDefaults.standard.object(forKey: "bgDim") as? Double ?? 0.45 {
+        didSet { UserDefaults.standard.set(bgDim, forKey: "bgDim") }
+    }
+    @Published var bgBlur: Double = UserDefaults.standard.object(forKey: "bgBlur") as? Double ?? 0 {
+        didSet { UserDefaults.standard.set(bgBlur, forKey: "bgBlur") }
+    }
+
+    static let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("MacSweep", isDirectory: true)
+
+    init() {
+        if let path = UserDefaults.standard.string(forKey: "backgroundPath") {
+            bgImage = NSImage(contentsOfFile: path)
+        }
+    }
+
+    func chooseBackground() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.message = "选择一张图片作为 MacSweep 的背景"
+        panel.prompt = "设为背景"
+        if panel.runModal() == .OK, let url = panel.url { setBackground(from: url) }
+    }
+
+    @discardableResult
+    func setBackground(from url: URL) -> Bool {
+        guard let type = UTType(filenameExtension: url.pathExtension), type.conforms(to: .image),
+              let img = NSImage(contentsOf: url), img.isValid else { return false }
+        let fm = FileManager.default
+        try? fm.createDirectory(at: Self.supportDir, withIntermediateDirectories: true)
+        // 删除旧背景，文件名带时间戳避免缓存
+        for old in (try? fm.contentsOfDirectory(at: Self.supportDir, includingPropertiesForKeys: nil)) ?? []
+        where old.lastPathComponent.hasPrefix("background") { try? fm.removeItem(at: old) }
+        let dest = Self.supportDir.appendingPathComponent("background-\(Int(Date().timeIntervalSince1970)).\(url.pathExtension.lowercased())")
+        do { try fm.copyItem(at: url, to: dest) } catch { return false }
+        UserDefaults.standard.set(dest.path, forKey: "backgroundPath")
+        withAnimation(.easeInOut(duration: 0.3)) { bgImage = img }
+        return true
+    }
+
+    func clearBackground() {
+        if let path = UserDefaults.standard.string(forKey: "backgroundPath") {
+            try? FileManager.default.removeItem(atPath: path)
+        }
+        UserDefaults.standard.removeObject(forKey: "backgroundPath")
+        withAnimation(.easeInOut(duration: 0.3)) { bgImage = nil }
     }
 }
 
