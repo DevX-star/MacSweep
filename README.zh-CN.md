@@ -65,7 +65,10 @@
 
 从 [Releases](https://github.com/DevX-star/MacSweep/releases) 下载 `MacSweep-x.y.z.zip`，解压后拖到「应用程序」。支持 Apple Silicon 和 Intel，需要 macOS 13 或更高版本。
 
-> 应用未经 Apple 公证，首次打开若提示「无法验证开发者」，请右键 → 打开，或执行：
+> **首次打开：** MacSweep 暂未经过 Apple 公证，第一次打开会被系统拦下。任选一种方法：
+>
+> 1. 先双击打开一次，然后进入 **系统设置 → 隐私与安全性**，拉到页面底部，点击 **仍要打开**。（macOS 13–14 也可以右键点应用 → **打开**。）
+> 2. 或者在终端执行下面这条命令（提示「应用已损坏」时也用这个方法）：
 > ```bash
 > xattr -dr com.apple.quarantine /Applications/MacSweep.app
 > ```

@@ -65,7 +65,10 @@ Your selection is remembered. To add a category, add one rule to `allRules` in `
 
 Download `MacSweep-x.y.z.zip` from [Releases](https://github.com/DevX-star/MacSweep/releases), unzip it and drag the app into Applications. Works on Apple Silicon and Intel with macOS 13 or later.
 
-> The app is not notarized by Apple. If macOS says it can't verify the developer, right-click the app and choose Open, or run:
+> **First launch:** MacSweep isn't notarized by Apple yet, so macOS blocks it the first time you open it. Use either option:
+>
+> 1. Double-click the app once, then go to **System Settings → Privacy & Security**, scroll to the bottom and click **Open Anyway**. (On macOS 13–14, right-click the app → **Open** also works.)
+> 2. Or run this in Terminal (also fixes the "app is damaged" message):
 > ```bash
 > xattr -dr com.apple.quarantine /Applications/MacSweep.app
 > ```
