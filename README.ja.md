@@ -14,6 +14,13 @@
 
 ---
 
+## 📸 スクリーンショット
+
+<p align="center">
+  <img src="docs/screenshot-clean.webp" width="49%" alt="スマートクリーン">
+  <img src="docs/screenshot-uninstall.webp" width="49%" alt="アンインストーラ">
+</p>
+
 ## 🧰 3 つの機能
 
 | | 機能 | 内容 |

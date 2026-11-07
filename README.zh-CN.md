@@ -14,6 +14,13 @@
 
 ---
 
+## 📸 截图
+
+<p align="center">
+  <img src="docs/screenshot-clean.webp" width="49%" alt="智能清理">
+  <img src="docs/screenshot-uninstall.webp" width="49%" alt="应用卸载">
+</p>
+
 ## 🧰 三大功能
 
 | | 功能 | 说明 |

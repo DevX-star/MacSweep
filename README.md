@@ -14,6 +14,13 @@ Pure SwiftUI · ~2 MB download · No dependencies · No network access · Moves 
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="docs/screenshot-clean.webp" width="49%" alt="Smart Clean">
+  <img src="docs/screenshot-uninstall.webp" width="49%" alt="Uninstaller">
+</p>
+
 ## 🧰 Three tools in one
 
 | | Tool | What it does |
