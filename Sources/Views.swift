@@ -16,7 +16,7 @@ struct RootView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $app.pane) {
-                Section("工具") {
+                Section(t("工具")) {
                     ForEach(Pane.allCases) { p in
                         Label { Text(p.title) } icon: { IconTile(symbol: p.icon, color: p.color, size: 22) }
                             .tag(p)
@@ -33,10 +33,14 @@ struct RootView: View {
                 case .uninstall: UninstallView(app: app, vm: uninstall)
                 }
             }
+            .id(app.lang)   // 切换语言时重建详情页，所有文字立即更新
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(BackgroundLayer(app: app))
         }
         .frame(minWidth: 860, minHeight: 600)
+        .onChange(of: app.lang) { _ in
+            sweep.refreshIdleStatus(); large.refreshIdleStatus(); uninstall.refreshIdleStatus()
+        }
         // 直接把图片拖进窗口即可设为背景
         .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
             guard let p = providers.first else { return false }
@@ -58,13 +62,13 @@ struct SidebarDisk: View {
                 Text("Macintosh HD").font(.caption.bold())
             }
             SizeBar(ratio: app.usedRatio, color: diskColor(app.usedRatio), width: nil)
-            Text("可用 \(fmt(app.disk.free))").font(.caption2).foregroundStyle(.secondary)
+            Text(t("可用 %@", "\(fmt(app.disk.free))")).font(.caption2).foregroundStyle(.secondary)
             if app.totalFreed > 0 {
-                Text("累计释放 \(fmt(app.totalFreed))").font(.caption2).foregroundStyle(.green)
+                Text(t("累计释放 %@", "\(fmt(app.totalFreed))")).font(.caption2).foregroundStyle(.green)
             }
             Divider().padding(.vertical, 2)
             Button { app.showAppearance.toggle() } label: {
-                Label("背景与外观", systemImage: "paintbrush.pointed").font(.caption)
+                Label(t("设置"), systemImage: "gearshape").font(.caption)
             }
             .buttonStyle(.borderless)
             .popover(isPresented: $app.showAppearance, arrowEdge: .trailing) { AppearancePanel(app: app) }
@@ -97,7 +101,13 @@ struct AppearancePanel: View {
     @ObservedObject var app: AppState
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("背景图").font(.headline)
+            Text(t("语言")).font(.headline)
+            Picker("", selection: $app.lang) {
+                ForEach(Lang.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden()
+            Divider()
+            Text(t("背景图")).font(.headline)
             ZStack {
                 if let img = app.bgImage {
                     Image(nsImage: img).resizable().scaledToFill()
@@ -105,7 +115,7 @@ struct AppearancePanel: View {
                         .overlay(Color(nsColor: .windowBackgroundColor).opacity(app.bgDim))
                 } else {
                     Rectangle().fill(.quaternary)
-                    Label("未设置", systemImage: "photo").foregroundStyle(.secondary)
+                    Label(t("未设置"), systemImage: "photo").foregroundStyle(.secondary)
                 }
             }
             .frame(width: 260, height: 150)
@@ -113,21 +123,21 @@ struct AppearancePanel: View {
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.quaternary))
 
             HStack {
-                Button { app.chooseBackground() } label: { Label("上传图片…", systemImage: "photo.badge.plus") }
+                Button { app.chooseBackground() } label: { Label(t("上传图片…"), systemImage: "photo.badge.plus") }
                     .buttonStyle(.borderedProminent)
-                Button("移除") { app.clearBackground() }.disabled(app.bgImage == nil)
+                Button(t("移除")) { app.clearBackground() }.disabled(app.bgImage == nil)
             }
-            Text("也可以直接把图片拖进窗口").font(.caption).foregroundStyle(.secondary)
+            Text(t("也可以直接把图片拖进窗口")).font(.caption).foregroundStyle(.secondary)
 
             if app.bgImage != nil {
                 Divider()
-                LabeledContent("遮罩") {
+                LabeledContent(t("遮罩")) {
                     Slider(value: $app.bgDim, in: 0...0.9).frame(width: 170)
                 }
-                LabeledContent("模糊") {
+                LabeledContent(t("模糊")) {
                     Slider(value: $app.bgBlur, in: 0...30).frame(width: 170)
                 }
-                Text("遮罩越高，文字越清晰").font(.caption).foregroundStyle(.secondary)
+                Text(t("遮罩越高，文字越清晰")).font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(16)
@@ -210,7 +220,7 @@ struct RevealButton: View {
         Button { NSWorkspace.shared.activateFileViewerSelecting([url]) } label: {
             Image(systemName: "magnifyingglass")
         }
-        .buttonStyle(.borderless).help("在访达中显示")
+        .buttonStyle(.borderless).help(t("在访达中显示"))
     }
 }
 
@@ -252,20 +262,20 @@ struct CleanView: View {
             }
             ActionBar(status: vm.status, busy: vm.busy, progress: vm.busy && !vm.scanned ? vm.progress : nil) {
                 if vm.scanned {
-                    Button("返回") { withAnimation { vm.reset() } }.disabled(vm.busy)
-                    Button("清理 \(fmt(vm.selectedSize))") { vm.showConfirm = true }
+                    Button(t("返回")) { withAnimation { vm.reset() } }.disabled(vm.busy)
+                    Button(t("清理 %@", "\(fmt(vm.selectedSize))")) { vm.showConfirm = true }
                         .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
                         .disabled(vm.selectedSize == 0 || vm.busy)
                 }
             }
         }
-        .navigationTitle("智能清理")
-        .alert("确认清理 \(fmt(vm.selectedSize))？", isPresented: $vm.showConfirm) {
-            Button("取消", role: .cancel) {}
-            Button("清理", role: .destructive) { vm.clean(app: app) }
+        .navigationTitle(t("智能清理"))
+        .alert(t("确认清理 %@？", "\(fmt(vm.selectedSize))"), isPresented: $vm.showConfirm) {
+            Button(t("取消"), role: .cancel) {}
+            Button(t("清理"), role: .destructive) { vm.clean(app: app) }
         } message: {
-            Text(vm.includesPermanent ? "废纸篓中的内容将被永久删除，无法恢复；其余项目会移到废纸篓。"
-                                      : "所选项目将移到废纸篓，需要时可以恢复。建议先退出相关应用。")
+            Text(vm.includesPermanent ? t("废纸篓中的内容将被永久删除，无法恢复；其余项目会移到废纸篓。")
+                                      : t("所选项目将移到废纸篓，需要时可以恢复。建议先退出相关应用。"))
         }
     }
 
@@ -276,7 +286,7 @@ struct CleanView: View {
                     Ring(value: app.usedRatio, color: diskColor(app.usedRatio))
                     VStack(spacing: 2) {
                         Text("\(Int(app.usedRatio * 100))%").font(.system(size: 26, weight: .bold, design: .rounded))
-                        Text("已使用").font(.caption).foregroundStyle(.secondary)
+                        Text(t("已使用")).font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .frame(width: 110, height: 110)
@@ -285,17 +295,17 @@ struct CleanView: View {
                     if vm.scanned {
                         Text(fmt(vm.total)).font(.system(size: 34, weight: .bold, design: .rounded))
                             .foregroundStyle(.tint).contentTransition(.numericText())
-                        Text("可清理空间 · 已勾选 \(fmt(vm.selectedSize))").foregroundStyle(.secondary)
+                        Text(t("可清理空间 · 已勾选 %@", "\(fmt(vm.selectedSize))")).foregroundStyle(.secondary)
                     } else if let last = app.lastFreed {
-                        Label("清理完成", systemImage: "checkmark.seal.fill").font(.title2.bold()).foregroundStyle(.green)
-                        Text("刚刚释放了 \(fmt(last))，移到废纸篓的内容可以恢复").foregroundStyle(.secondary)
+                        Label(t("清理完成"), systemImage: "checkmark.seal.fill").font(.title2.bold()).foregroundStyle(.green)
+                        Text(t("刚刚释放了 %@，移到废纸篓的内容可以恢复", "\(fmt(last))")).foregroundStyle(.secondary)
                     } else {
-                        Text("让你的 Mac 保持轻盈").font(.title2.bold())
-                        Text("可用 \(fmt(app.disk.free)) / 共 \(fmt(app.disk.total))").foregroundStyle(.secondary)
+                        Text(t("让你的 Mac 保持轻盈")).font(.title2.bold())
+                        Text(t("可用 %@ / 共 %@", "\(fmt(app.disk.free))", "\(fmt(app.disk.total))")).foregroundStyle(.secondary)
                     }
                     if !vm.scanned {
                         Button { vm.scan() } label: {
-                            Label(vm.busy ? "扫描中…" : "开始扫描", systemImage: "magnifyingglass")
+                            Label(vm.busy ? t("扫描中…") : t("开始扫描"), systemImage: "magnifyingglass")
                                 .frame(minWidth: 120)
                         }
                         .buttonStyle(.borderedProminent).controlSize(.large)
@@ -311,7 +321,7 @@ struct CleanView: View {
 
     private var ruleGrid: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("扫描范围").font(.headline)
+            Text(t("扫描范围")).font(.headline)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 12)], spacing: 12) {
                 ForEach(allRules) { rule in
                     let on = vm.enabled.contains(rule.id)
@@ -319,8 +329,8 @@ struct CleanView: View {
                         HStack(spacing: 12) {
                             IconTile(symbol: rule.icon, color: on ? rule.color : .gray, size: 34)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(rule.name).font(.body.weight(.medium)).foregroundStyle(.primary)
-                                Text(rule.detail).font(.caption).lineLimit(2)
+                                Text(rule.title).font(.body.weight(.medium)).foregroundStyle(.primary)
+                                Text(rule.desc).font(.caption).lineLimit(2)
                                     .foregroundStyle(rule.permanent ? .red : .secondary)
                                     .multilineTextAlignment(.leading)
                             }
@@ -370,10 +380,10 @@ struct CategoryRow: View {
                 IconTile(symbol: r.rule.icon, color: r.rule.color, size: 30)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text(r.rule.name).font(.headline)
-                        if r.rule.permanent { Tag(text: "永久删除", color: .red) }
+                        Text(r.rule.title).font(.headline)
+                        if r.rule.permanent { Tag(text: t("永久删除"), color: .red) }
                     }
-                    Text("已选 \(selCount)/\(r.items.count) 项").font(.caption).foregroundStyle(.secondary)
+                    Text(t("已选 %@/%@ 项", "\(selCount)", "\(r.items.count)")).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 SizeBar(ratio: Double(r.total) / Double(max(maxTotal, 1)), color: r.rule.color)
@@ -390,7 +400,7 @@ struct CategoryRow: View {
                     HStack(spacing: 8) {
                         Toggle("", isOn: vm.binding(item.url)).labelsHidden().toggleStyle(.checkbox)
                         Text(displayName(item.url)).lineLimit(1).truncationMode(.middle).help(item.url.path)
-                        if item.inUse { Tag(text: "运行中", color: .orange) }
+                        if item.inUse { Tag(text: t("运行中"), color: .orange) }
                         Spacer()
                         Text(fmt(item.size)).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
                         RevealButton(url: item.url)
@@ -398,7 +408,7 @@ struct CategoryRow: View {
                     .padding(.leading, 30)
                 }
                 if r.items.count > 100 {
-                    Text("另有 \(r.items.count - 100) 个较小项目").font(.caption).foregroundStyle(.secondary)
+                    Text(t("另有 %@ 个较小项目", "\(r.items.count - 100)")).font(.caption).foregroundStyle(.secondary)
                         .padding(.leading, 30)
                 }
             }
@@ -424,26 +434,26 @@ struct LargeFilesView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Picker("最小", selection: $vm.thresholdMB) {
+                Picker(t("最小"), selection: $vm.thresholdMB) {
                     Text("100 MB").tag(100); Text("500 MB").tag(500)
                     Text("1 GB").tag(1000); Text("5 GB").tag(5000)
                 }
                 .pickerStyle(.segmented).frame(width: 300)
-                Button { vm.scan() } label: { Label("查找", systemImage: "magnifyingglass") }
+                Button { vm.scan() } label: { Label(t("查找"), systemImage: "magnifyingglass") }
                     .buttonStyle(.borderedProminent).disabled(vm.busy)
                 Spacer()
                 if vm.scanned {
-                    TextField("筛选路径", text: $vm.query).textFieldStyle(.roundedBorder).frame(width: 180)
+                    TextField(t("筛选路径"), text: $vm.query).textFieldStyle(.roundedBorder).frame(width: 180)
                 }
             }
             .padding(.horizontal, 20).padding(.vertical, 12)
             Divider()
 
             if !vm.scanned {
-                EmptyState(icon: "doc.viewfinder", color: .orange, title: "找出占空间的大文件",
-                           message: "扫描主目录中的视频、安装包、压缩包等大文件。\n不会自动勾选任何文件，请自行确认后再删除。")
+                EmptyState(icon: "doc.viewfinder", color: .orange, title: t("找出占空间的大文件"),
+                           message: t("扫描主目录中的视频、安装包、压缩包等大文件。\n不会自动勾选任何文件，请自行确认后再删除。"))
             } else if vm.files.isEmpty {
-                EmptyState(icon: "checkmark.circle", color: .green, title: "没有找到大文件", message: "试试降低大小阈值")
+                EmptyState(icon: "checkmark.circle", color: .green, title: t("没有找到大文件"), message: t("试试降低大小阈值"))
             } else {
                 let maxSize = vm.files.first?.size ?? 1
                 List(vm.visible) { f in
@@ -473,17 +483,17 @@ struct LargeFilesView: View {
 
             ActionBar(status: vm.status, busy: vm.busy) {
                 if vm.scanned && !vm.files.isEmpty {
-                    Button("移到废纸篓 \(fmt(vm.selectedSize))") { vm.showConfirm = true }
+                    Button(t("移到废纸篓 %@", "\(fmt(vm.selectedSize))")) { vm.showConfirm = true }
                         .buttonStyle(.borderedProminent).tint(.orange)
                         .disabled(vm.selectedSize == 0 || vm.busy)
                 }
             }
         }
-        .navigationTitle("大文件")
-        .alert("将 \(vm.selected.count) 个文件移到废纸篓？", isPresented: $vm.showConfirm) {
-            Button("取消", role: .cancel) {}
-            Button("移到废纸篓", role: .destructive) { vm.trash(app: app) }
-        } message: { Text("共 \(fmt(vm.selectedSize))。这些是你的个人文件，请确认不再需要。可从废纸篓恢复。") }
+        .navigationTitle(t("大文件"))
+        .alert(t("将 %@ 个文件移到废纸篓？", "\(vm.selected.count)"), isPresented: $vm.showConfirm) {
+            Button(t("取消"), role: .cancel) {}
+            Button(t("移到废纸篓"), role: .destructive) { vm.trash(app: app) }
+        } message: { Text(t("共 %@。这些是你的个人文件，请确认不再需要。可从废纸篓恢复。", "\(fmt(vm.selectedSize))")) }
     }
 }
 
@@ -509,7 +519,7 @@ struct UninstallView: View {
     var body: some View {
         HSplitView {
             VStack(spacing: 0) {
-                TextField("搜索应用", text: $vm.query).textFieldStyle(.roundedBorder).padding(10)
+                TextField(t("搜索应用"), text: $vm.query).textFieldStyle(.roundedBorder).padding(10)
                 if vm.loading {
                     ProgressView().frame(maxHeight: .infinity)
                 } else {
@@ -520,7 +530,7 @@ struct UninstallView: View {
                             if let icon = vm.icons[a.url] { Image(nsImage: icon).resizable().frame(width: 26, height: 26) }
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(a.name).lineLimit(1)
-                                Text(a.size.map(fmt) ?? "计算中…").font(.caption).foregroundStyle(.secondary)
+                                Text(a.size.map(fmt) ?? t("计算中…")).font(.caption).foregroundStyle(.secondary)
                             }
                         }
                         .tag(a.url)
@@ -533,12 +543,12 @@ struct UninstallView: View {
 
             detail.frame(minWidth: 380, maxWidth: .infinity)
         }
-        .navigationTitle("应用卸载")
+        .navigationTitle(t("应用卸载"))
         .onAppear { vm.load() }
-        .alert("卸载 \(vm.current?.name ?? "")？", isPresented: $vm.showConfirm) {
-            Button("取消", role: .cancel) {}
-            Button("卸载", role: .destructive) { vm.uninstall(app: app) }
-        } message: { Text("应用及所选的 \(vm.selected.count) 项相关文件（共 \(fmt(vm.selectedSize))）将移到废纸篓，可以恢复。") }
+        .alert(t("卸载 %@？", "\(vm.current?.name ?? "")"), isPresented: $vm.showConfirm) {
+            Button(t("取消"), role: .cancel) {}
+            Button(t("卸载"), role: .destructive) { vm.uninstall(app: app) }
+        } message: { Text(t("应用及所选的 %@ 项相关文件（共 %@）将移到废纸篓，可以恢复。", "\(vm.selected.count)", "\(fmt(vm.selectedSize))")) }
     }
 
     @ViewBuilder private var detail: some View {
@@ -552,18 +562,18 @@ struct UninstallView: View {
                                 Text(a.name).font(.title2.bold())
                                 Text("\(a.bundleID)  ·  v\(a.version)").font(.caption).foregroundStyle(.secondary)
                                     .textSelection(.enabled)
-                                if vm.isRunning { Tag(text: "正在运行", color: .orange) }
+                                if vm.isRunning { Tag(text: t("正在运行"), color: .orange) }
                             }
                         }
                         Card {
                             VStack(alignment: .leading, spacing: 8) {
-                                fileRow(FoundItem(url: a.url, size: a.size ?? 0), label: "应用本体")
+                                fileRow(FoundItem(url: a.url, size: a.size ?? 0), label: t("应用本体"))
                                 if !vm.leftovers.isEmpty { Divider() }
                                 ForEach(vm.leftovers) { item in
                                     fileRow(item, label: item.url.deletingLastPathComponent().lastPathComponent)
                                 }
                                 if vm.leftovers.isEmpty {
-                                    Text("没有找到残留文件").font(.caption).foregroundStyle(.secondary)
+                                    Text(t("没有找到残留文件")).font(.caption).foregroundStyle(.secondary)
                                 }
                             }
                         }
@@ -571,15 +581,15 @@ struct UninstallView: View {
                     .padding(20)
                 }
             } else {
-                EmptyState(icon: "trash.square", color: .pink, title: "彻底卸载应用",
-                           message: "选择左侧的应用，MacSweep 会找出它在资料库中的\n缓存、偏好设置、容器等残留文件，一并移到废纸篓。")
+                EmptyState(icon: "trash.square", color: .pink, title: t("彻底卸载应用"),
+                           message: t("选择左侧的应用，MacSweep 会找出它在资料库中的\n缓存、偏好设置、容器等残留文件，一并移到废纸篓。"))
             }
             ActionBar(status: vm.status, busy: vm.busy) {
                 if vm.current != nil {
                     if vm.isRunning {
-                        Button("退出应用") { vm.quitApp() }
+                        Button(t("退出应用")) { vm.quitApp() }
                     }
-                    Button("卸载 \(fmt(vm.selectedSize))") { vm.showConfirm = true }
+                    Button(t("卸载 %@", "\(fmt(vm.selectedSize))")) { vm.showConfirm = true }
                         .buttonStyle(.borderedProminent).tint(.pink)
                         .disabled(vm.selected.isEmpty || vm.busy || vm.isRunning)
                 }

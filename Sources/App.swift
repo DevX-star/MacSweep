@@ -26,16 +26,13 @@ enum CLI {
             return args[i + 1]
         }
         if args.contains("--help") || args.contains("-h") {
-            print("""
-            MacSweep \(appVersion) — 轻量 macOS 清理工具（命令行模式均为只读）
-
-            用法：
-              MacSweep                       打开图形界面
-              MacSweep --scan [--json]       预览可清理内容
-              MacSweep --large [MB] [--json] 列出主目录中的大文件（默认 500 MB）
-              MacSweep --leftovers <bundleID|应用名>  列出应用及其残留文件
-              MacSweep --version             显示版本
-            """)
+            print("MacSweep \(appVersion) — " + t("轻量 macOS 清理工具（命令行模式均为只读）") + "\n")
+            print(t("用法："))
+            print("  MacSweep                       " + t("打开图形界面"))
+            print("  MacSweep --scan [--json]       " + t("预览可清理内容"))
+            print("  MacSweep --large [MB] [--json] " + t("列出主目录中的大文件（默认 500 MB）"))
+            print("  MacSweep --leftovers <bundleID|name>  " + t("列出应用及其残留文件"))
+            print("  MacSweep --version             " + t("显示版本"))
             exit(0)
         }
         if args.contains("--version") { print(appVersion); exit(0) }
@@ -46,19 +43,19 @@ enum CLI {
             let files = Engine.largeFiles(minBytes: mb * 1_000_000)
             if json { printJSON(files.map { ["path": $0.url.path, "bytes": $0.size] }); exit(0) }
             for f in files.prefix(50) { print(pad(fmt(f.size), 11) + f.url.path) }
-            print("共 \(files.count) 个 ≥ \(mb) MB 的文件，合计 \(fmt(files.reduce(0) { $0 + $1.size }))")
+            print(t("共 %@ 个 ≥ %@ MB 的文件，合计 %@", "\(files.count)", "\(mb)", "\(fmt(files.reduce(0) { $0 + $1.size }))"))
             exit(0)
         }
 
         if let q = value(after: "--leftovers") {
             guard let app = Engine.installedApps().first(where: {
                 $0.bundleID.caseInsensitiveCompare(q) == .orderedSame || $0.name.caseInsensitiveCompare(q) == .orderedSame
-            }) else { print("未找到应用：\(q)（不支持 Apple 自带应用）"); exit(1) }
+            }) else { print(t("未找到应用：%@（不支持 Apple 自带应用）", "\(q)")); exit(1) }
             let items = [FoundItem(url: app.url, size: Engine.allocatedSize(of: app.url))] + Engine.leftovers(for: app)
             if json { printJSON(items.map { ["path": $0.url.path, "bytes": $0.size] }); exit(0) }
             print("\(app.name) (\(app.bundleID))")
             for i in items { print("  " + pad(fmt(i.size), 11) + i.url.path) }
-            print("合计 \(fmt(items.reduce(0) { $0 + $1.size }))")
+            print(t("合计 %@", "\(fmt(items.reduce(0) { $0 + $1.size }))"))
             exit(0)
         }
 
@@ -66,18 +63,18 @@ enum CLI {
         let results = allRules.map { Engine.scan($0, running: running) }
         if json {
             printJSON(results.map { r -> [String: Any] in
-                ["id": r.rule.id, "name": r.rule.name, "bytes": r.total,
+                ["id": r.rule.id, "name": r.rule.title, "bytes": r.total,
                  "items": r.items.map { ["path": $0.url.path, "bytes": $0.size, "inUse": $0.inUse] }]
             })
             exit(0)
         }
         for r in results {
-            print(pad(r.rule.name, 18) + pad(fmt(r.total), 11) + "\(r.items.count) 项")
+            print(pad(r.rule.title, 18) + pad(fmt(r.total), 11) + t("%@ 项", "\(r.items.count)"))
             for i in r.items.prefix(3) {
-                print("    " + pad(fmt(i.size), 11) + i.url.path + (i.inUse ? "  [运行中]" : ""))
+                print("    " + pad(fmt(i.size), 11) + i.url.path + (i.inUse ? t("  [运行中]") : ""))
             }
         }
-        print("合计可清理：\(fmt(results.reduce(0) { $0 + $1.total }))（只读预览，未删除任何文件）")
+        print(t("合计可清理：%@（只读预览，未删除任何文件）", "\(fmt(results.reduce(0) { $0 + $1.total }))"))
         exit(0)
     }
 }

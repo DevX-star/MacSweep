@@ -9,7 +9,7 @@
 import SwiftUI
 import AppKit
 
-let appVersion = "1.2.0"
+let appVersion = "1.3.0"
 
 // MARK: - 清理规则
 
@@ -29,6 +29,10 @@ struct Rule: Identifiable {
     let mode: ScanMode
     let defaultOn: Bool
     var permanent: Bool = false                               // true = 永久删除（仅废纸篓）
+
+    /// 本地化后的名称与描述（name/detail 本身是中文键）
+    var title: String { t(name) }
+    var desc: String { t(detail) }
 }
 
 let allRules: [Rule] = [

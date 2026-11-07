@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 enum Pane: String, CaseIterable, Identifiable {
     case clean, large, uninstall
     var id: String { rawValue }
-    var title: String { ["clean": "智能清理", "large": "大文件", "uninstall": "应用卸载"][rawValue]! }
+    var title: String { ["clean": t("智能清理"), "large": t("大文件"), "uninstall": t("应用卸载")][rawValue]! }
     var icon: String { ["clean": "sparkles", "large": "doc.viewfinder", "uninstall": "trash.square"][rawValue]! }
     var color: Color { ["clean": Color.blue, "large": .orange, "uninstall": .pink][rawValue]! }
 }
@@ -33,6 +33,13 @@ final class AppState: ObservableObject {
 
     // MARK: 背景图（复制到 ~/Library/Application Support/MacSweep/，不依赖原文件）
 
+    @Published var lang: Lang = Lang(rawValue: UserDefaults.standard.string(forKey: "language") ?? "") ?? .system {
+        didSet {
+            UserDefaults.standard.set(lang.rawValue, forKey: "language")
+            Loc.current = lang.resolved
+        }
+    }
+
     @Published var bgImage: NSImage? = nil
     @Published var showAppearance = false
     @Published var bgDim: Double = UserDefaults.standard.object(forKey: "bgDim") as? Double ?? 0.45 {
@@ -55,8 +62,8 @@ final class AppState: ObservableObject {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.image]
         panel.allowsMultipleSelection = false
-        panel.message = "选择一张图片作为 MacSweep 的背景"
-        panel.prompt = "设为背景"
+        panel.message = t("选择一张图片作为 MacSweep 的背景")
+        panel.prompt = t("设为背景")
         if panel.runModal() == .OK, let url = panel.url { setBackground(from: url) }
     }
 
@@ -138,7 +145,7 @@ final class SweepModel: Selectable {
         let saved = UserDefaults.standard.stringArray(forKey: "enabledRules")
         enabled = Set(saved ?? allRules.filter(\.defaultOn).map(\.id))
         super.init()
-        status = "扫描是只读的，不会删除任何文件。"
+        status = t("扫描是只读的，不会删除任何文件。")
     }
 
     override var allItems: [FoundItem] { results.flatMap(\.items) }
@@ -149,14 +156,16 @@ final class SweepModel: Selectable {
         results.contains { $0.rule.permanent && $0.items.contains { selected.contains($0.url) } }
     }
 
+    func refreshIdleStatus() { if !scanned && !busy { status = t("扫描是只读的，不会删除任何文件。") } }
+
     func toggleRule(_ id: String) {
         if enabled.contains(id) { enabled.remove(id) } else { enabled.insert(id) }
     }
 
-    func reset() { results = []; selected = []; recompute(); status = "扫描是只读的，不会删除任何文件。" }
+    func reset() { results = []; selected = []; recompute(); status = t("扫描是只读的，不会删除任何文件。") }
 
     func scan() {
-        busy = true; progress = 0; status = "正在扫描…"
+        busy = true; progress = 0; status = t("正在扫描…")
         let rules = allRules.filter { enabled.contains($0.id) }
         let running = Engine.runningAppKeys()
         Task {
@@ -168,7 +177,7 @@ final class SweepModel: Selectable {
                 for await r in group {
                     res.append(r)
                     withAnimation { progress = Double(res.count) / Double(max(rules.count, 1)) }
-                    status = "已扫描 \(res.count)/\(rules.count)：\(r.rule.name)"
+                    status = t("已扫描 %@/%@：%@", "\(res.count)", "\(rules.count)", "\(r.rule.title)")
                 }
             }
             let order = Dictionary(uniqueKeysWithValues: allRules.enumerated().map { ($1.id, $0) })
@@ -179,20 +188,20 @@ final class SweepModel: Selectable {
             recompute()
             busy = false
             let inUse = allItems.filter(\.inUse).count
-            status = results.isEmpty ? "很干净，没有找到可清理的内容 ✨"
-                : "找到 \(fmt(total))" + (inUse > 0 ? "，\(inUse) 项属于运行中的应用，默认未勾选" : "")
+            status = results.isEmpty ? t("很干净，没有找到可清理的内容 ✨")
+                : t("找到 %@", "\(fmt(total))") + (inUse > 0 ? t("，%@ 项属于运行中的应用，默认未勾选", "\(inUse)") : "")
         }
     }
 
     func clean(app: AppState) {
-        busy = true; status = "正在清理…"
+        busy = true; status = t("正在清理…")
         let groups = results.map { r in (permanent: r.rule.permanent, items: r.items.filter { selected.contains($0.url) }) }
         Task {
             let (freed, failed) = await removeInBackground(groups)
             busy = false
             app.record(freed: freed)
             withAnimation { reset() }
-            status = "已释放 \(fmt(freed))" + (failed > 0 ? "，\(failed) 项被保护或正在使用，已跳过" : "")
+            status = t("已释放 %@", "\(fmt(freed))") + (failed > 0 ? t("，%@ 项被保护或正在使用，已跳过", "\(failed)") : "")
         }
     }
 }
@@ -206,21 +215,22 @@ final class LargeFileModel: Selectable {
     @Published var scanned = false
     @Published var query = ""
 
-    override init() { super.init(); status = "在主目录中查找大文件（跳过系统资料库）" }
+    override init() { super.init(); status = t("在主目录中查找大文件（跳过系统资料库）") }
     override var allItems: [FoundItem] { files }
+    func refreshIdleStatus() { if !scanned && !busy { status = t("在主目录中查找大文件（跳过系统资料库）") } }
     var visible: [FoundItem] {
         query.isEmpty ? files : files.filter { $0.url.path.localizedCaseInsensitiveContains(query) }
     }
 
     func scan() {
-        busy = true; status = "正在查找大于 \(thresholdMB) MB 的文件…"
+        busy = true; status = t("正在查找大于 %@ MB 的文件…", "\(thresholdMB)")
         let min = Int64(thresholdMB) * 1_000_000
         Task {
             let found = await Task.detached(priority: .userInitiated) { Engine.largeFiles(minBytes: min) }.value
             withAnimation { files = found; scanned = true }
             selected = []; recompute(); busy = false
-            status = found.isEmpty ? "没有找到大于 \(thresholdMB) MB 的文件"
-                : "找到 \(found.count) 个文件，共 \(fmt(found.reduce(0) { $0 + $1.size }))，请手动勾选"
+            status = found.isEmpty ? t("没有找到大于 %@ MB 的文件", "\(thresholdMB)")
+                : t("找到 %@ 个文件，共 %@，请手动勾选", "\(found.count)", "\(fmt(found.reduce(0) { $0 + $1.size }))")
         }
     }
 
@@ -232,7 +242,7 @@ final class LargeFileModel: Selectable {
             app.record(freed: freed)
             withAnimation { files.removeAll { !FileManager.default.fileExists(atPath: $0.url.path) } }
             selected = []; recompute(); busy = false
-            status = "已移到废纸篓 \(fmt(freed))" + (failed > 0 ? "，\(failed) 项失败" : "")
+            status = t("已移到废纸篓 %@", "\(fmt(freed))") + (failed > 0 ? t("，%@ 项失败", "\(failed)") : "")
         }
     }
 }
@@ -248,12 +258,14 @@ final class UninstallModel: Selectable {
     @Published var query = ""
     @Published var loading = false
 
-    override init() { super.init(); status = "选择一个应用，查看它和它的残留文件" }
+    override init() { super.init(); status = t("选择一个应用，查看它和它的残留文件") }
 
     override var allItems: [FoundItem] {
         guard let a = current else { return leftovers }
         return [FoundItem(url: a.url, size: a.size ?? 0)] + leftovers
     }
+    func refreshIdleStatus() { if current == nil && !busy { status = t("选择一个应用，查看它和它的残留文件") } }
+
     var visibleApps: [AppInfo] {
         query.isEmpty ? apps : apps.filter {
             $0.name.localizedCaseInsensitiveContains(query) || $0.bundleID.localizedCaseInsensitiveContains(query)
@@ -292,7 +304,7 @@ final class UninstallModel: Selectable {
             withAnimation { leftovers = found }
             selected = Set(allItems.map(\.url))
             recompute()
-            status = "\(app.name)：找到 \(found.count) 个相关文件"
+            status = t("%@：找到 %@ 个相关文件", "\(app.name)", "\(found.count)")
         }
     }
 
@@ -313,10 +325,10 @@ final class UninstallModel: Selectable {
             if !FileManager.default.fileExists(atPath: a.url.path) {
                 withAnimation { apps.removeAll { $0.url == a.url } }
                 select(nil)
-                status = "已卸载 \(a.name)，释放 \(fmt(freed))" + (failed > 0 ? "，\(failed) 项失败" : "")
+                status = t("已卸载 %@，释放 %@", "\(a.name)", "\(fmt(freed))") + (failed > 0 ? t("，%@ 项失败", "\(failed)") : "")
             } else {
                 select(a)
-                status = "无法移除 \(a.name)：可能需要管理员权限，请在访达中手动删除应用本体"
+                status = t("无法移除 %@：可能需要管理员权限，请在访达中手动删除应用本体", "\(a.name)")
             }
         }
     }
