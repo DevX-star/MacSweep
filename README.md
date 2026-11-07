@@ -8,7 +8,7 @@
 
 **English** · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
-Pure SwiftUI · ~2 MB download · No dependencies · No network access · Moves files to the Trash so you can restore them
+Pure SwiftUI · Under 4 MB · No dependencies · No network access · Moves files to the Trash so you can restore them
 
 </div>
 

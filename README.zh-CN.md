@@ -8,7 +8,7 @@
 
 [English](README.md) · **简体中文** · [日本語](README.ja.md)
 
-纯 SwiftUI · 安装包约 2 MB · 无依赖 · 不联网 · 默认移到废纸篓，可恢复
+纯 SwiftUI · 不到 4 MB · 无依赖 · 不联网 · 默认移到废纸篓，可恢复
 
 </div>
 
