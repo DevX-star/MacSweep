@@ -9,7 +9,7 @@
 import SwiftUI
 import AppKit
 
-let appVersion = "1.3.1"
+let appVersion = "1.3.2"
 
 // MARK: - 清理规则
 
