@@ -99,49 +99,74 @@ struct BackgroundLayer: View {
 
 struct AppearancePanel: View {
     @ObservedObject var app: AppState
+    private let width: CGFloat = 340
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(t("语言")).font(.headline)
-            Picker("", selection: $app.lang) {
-                ForEach(Lang.allCases) { Text($0.label).tag($0) }
+        VStack(alignment: .leading, spacing: 14) {
+            section(t("语言"), icon: "globe") {
+                Picker("", selection: $app.lang) {
+                    ForEach(Lang.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented).labelsHidden()
+                .frame(maxWidth: .infinity)
             }
-            .pickerStyle(.segmented).labelsHidden()
+
             Divider()
-            Text(t("背景图")).font(.headline)
-            ZStack {
-                if let img = app.bgImage {
-                    Image(nsImage: img).resizable().scaledToFill()
-                        .blur(radius: app.bgBlur / 3, opaque: true)
-                        .overlay(Color(nsColor: .windowBackgroundColor).opacity(app.bgDim))
-                } else {
-                    Rectangle().fill(.quaternary)
-                    Label(t("未设置"), systemImage: "photo").foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: 260, height: 150)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.quaternary))
 
-            HStack {
-                Button { app.chooseBackground() } label: { Label(t("上传图片…"), systemImage: "photo.badge.plus") }
+            section(t("背景图"), icon: "photo") {
+                // 用固定尺寸的占位框 + overlay，避免 scaledToFill 的图片撑大布局
+                Color.clear
+                    .frame(maxWidth: .infinity).frame(height: 160)
+                    .overlay {
+                        if let img = app.bgImage {
+                            Image(nsImage: img).resizable().scaledToFill()
+                                .blur(radius: app.bgBlur / 3, opaque: true)
+                                .overlay(Color(nsColor: .windowBackgroundColor).opacity(app.bgDim))
+                        } else {
+                            ZStack {
+                                Rectangle().fill(.quaternary)
+                                Label(t("未设置"), systemImage: "photo").foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.quaternary))
+
+                HStack {
+                    Button { app.chooseBackground() } label: {
+                        Label(t("上传图片…"), systemImage: "photo.badge.plus")
+                    }
                     .buttonStyle(.borderedProminent)
-                Button(t("移除")) { app.clearBackground() }.disabled(app.bgImage == nil)
-            }
-            Text(t("也可以直接把图片拖进窗口")).font(.caption).foregroundStyle(.secondary)
+                    Button(t("移除")) { app.clearBackground() }.disabled(app.bgImage == nil)
+                    Spacer(minLength: 0)
+                }
+                Text(t("也可以直接把图片拖进窗口")).font(.caption).foregroundStyle(.secondary)
 
-            if app.bgImage != nil {
-                Divider()
-                LabeledContent(t("遮罩")) {
-                    Slider(value: $app.bgDim, in: 0...0.9).frame(width: 170)
+                if app.bgImage != nil {
+                    slider(t("遮罩"), value: $app.bgDim, range: 0...0.9)
+                    slider(t("模糊"), value: $app.bgBlur, range: 0...30)
+                    Text(t("遮罩越高，文字越清晰")).font(.caption).foregroundStyle(.secondary)
                 }
-                LabeledContent(t("模糊")) {
-                    Slider(value: $app.bgBlur, in: 0...30).frame(width: 170)
-                }
-                Text(t("遮罩越高，文字越清晰")).font(.caption).foregroundStyle(.secondary)
             }
         }
-        .padding(16)
-        .frame(width: 292)
+        .padding(18)
+        .frame(width: width)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func section<C: View>(_ title: String, icon: String, @ViewBuilder _ content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: icon).font(.headline)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func slider(_ title: String, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        HStack(spacing: 10) {
+            Text(title).frame(width: 64, alignment: .leading).lineLimit(1)
+            Slider(value: value, in: range)
+        }
     }
 }
 
