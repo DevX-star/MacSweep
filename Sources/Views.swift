@@ -23,6 +23,7 @@ struct RootView: View {
                     }
                 }
             }
+            .id(app.lang)   // 切换语言时重建侧边栏行（List 会缓存行内容）
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
             .safeAreaInset(edge: .bottom) { SidebarDisk(app: app) }
         } detail: {
@@ -459,11 +460,12 @@ struct LargeFilesView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Picker(t("最小"), selection: $vm.thresholdMB) {
+                Text(t("最小")).foregroundStyle(.secondary).fixedSize()
+                Picker("", selection: $vm.thresholdMB) {
                     Text("100 MB").tag(100); Text("500 MB").tag(500)
                     Text("1 GB").tag(1000); Text("5 GB").tag(5000)
                 }
-                .pickerStyle(.segmented).frame(width: 300)
+                .pickerStyle(.segmented).labelsHidden().fixedSize()
                 Button { vm.scan() } label: { Label(t("查找"), systemImage: "magnifyingglass") }
                     .buttonStyle(.borderedProminent).disabled(vm.busy)
                 Spacer()
