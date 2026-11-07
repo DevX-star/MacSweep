@@ -41,7 +41,7 @@
 
 ### 方式一：下载
 
-从 [Releases](../../releases) 下载 `MacSweep-x.y.z.zip`，解压后拖到「应用程序」。
+从 [Releases](https://github.com/DevX-star/MacSweep/releases) 下载 `MacSweep-x.y.z.zip`，解压后拖到「应用程序」。
 
 > 应用未经 Apple 公证，首次打开若提示“无法验证开发者”，请右键 → 打开，或执行：
 > ```bash
@@ -53,7 +53,7 @@
 需要 macOS 13+ 和 Xcode 命令行工具（`xcode-select --install`）。
 
 ```bash
-git clone https://github.com/<you>/MacSweep.git
+git clone https://github.com/DevX-star/MacSweep.git
 cd MacSweep
 ./build.sh              # 构建当前架构 → build/MacSweep.app
 ./build.sh universal    # 构建 Apple Silicon + Intel 通用版，并打包 zip
