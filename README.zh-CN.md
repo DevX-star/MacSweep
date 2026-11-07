@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/icon.png" width="128" alt="MacSweep icon">
+<img src="docs/cover.jpg" width="100%" alt="MacSweep — Keep your Mac light.">
 
 # MacSweep
 
