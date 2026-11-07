@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP=build/MacSweep.app
-VERSION=$(sed -n 's/^let appVersion = "\(.*\)"/\1/p' Sources/MacSweep.swift)
+VERSION=$(sed -n 's/^let appVersion = "\(.*\)"/\1/p' Sources/Engine.swift)
 FLAGS=(-O -swift-version 5 -parse-as-library)
 
 rm -rf "$APP"
@@ -14,12 +14,12 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 if [[ "${1:-}" == "universal" ]]; then
   for arch in arm64 x86_64; do
-    swiftc "${FLAGS[@]}" -target "$arch-apple-macos13.0" Sources/MacSweep.swift -o "build/MacSweep-$arch"
+    swiftc "${FLAGS[@]}" -target "$arch-apple-macos13.0" Sources/*.swift -o "build/MacSweep-$arch"
   done
   lipo -create build/MacSweep-arm64 build/MacSweep-x86_64 -output "$APP/Contents/MacOS/MacSweep"
   rm build/MacSweep-arm64 build/MacSweep-x86_64
 else
-  swiftc "${FLAGS[@]}" Sources/MacSweep.swift -o "$APP/Contents/MacOS/MacSweep"
+  swiftc "${FLAGS[@]}" Sources/*.swift -o "$APP/Contents/MacOS/MacSweep"
 fi
 
 [[ -f Resources/AppIcon.icns ]] || swift scripts/make_icon.swift Resources/AppIcon.icns
